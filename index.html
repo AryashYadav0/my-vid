@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>YouTube Search App</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<main class="app-shell">
+		<section class="hero">
+			<form id="searchForm" class="search-card">
+				<input id="searchInput" type="search" placeholder="Search for a video topic..." autocomplete="off" required>
+				<button type="submit">Search</button>
+			</form>
+
+		</section>
+
+		<section>
+			<div id="results" class="results-grid" aria-live="polite"></div>
+		</section>
+	</main>
+
+	<script src="config.js"></script>
+	<script src="script.js"></script>
+</body>
+</html>
