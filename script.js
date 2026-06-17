@@ -1,102 +1,206 @@
-const form = document.getElementById('searchForm');
-const input = document.getElementById('searchInput');
-const results = document.getElementById('results');
-const statusText = document.getElementById('status');
+const form = document.getElementById("searchForm");
+const input = document.getElementById("searchInput");
+const results = document.getElementById("results");
+const statusText = document.getElementById("status");
 
-const API_KEY = config?.YOUTUBE_API_KEY;
+const modal = document.getElementById("videoModal");
+const closeBtn = document.getElementById("closeModal");
 
-function setStatus(message) {
-	statusText.textContent = message;
+const API_KEY = config.YOUTUBE_API_KEY;
+
+let player;
+
+function setStatus(message){
+    statusText.textContent = message;
 }
 
-function escapeHtml(value) {
-	return value
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#39;');
+function escapeHtml(str){
+    return str
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;");
 }
 
-function renderEmpty(message) {
-	results.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+function renderEmpty(message){
+    results.innerHTML = `
+        <div class="empty-state">
+            ${message}
+        </div>
+    `;
 }
 
-function renderVideos(videos) {
-	if (!videos.length) {
-		renderEmpty('No videos found. Try a different search term.');
-		return;
-	}
+async function searchVideos(query){
 
-	results.innerHTML = videos.map((video) => {
-		const title = escapeHtml(video.snippet.title);
-		const channel = escapeHtml(video.snippet.channelTitle);
-		const description = escapeHtml(video.snippet.description || 'No description available.');
-		const thumb = video.snippet.thumbnails?.medium?.url || video.snippet.thumbnails?.default?.url || '';
-		const videoUrl = `https://www.youtube.com/watch?v=${video.id.videoId}`;
+    const url = new URL(
+        "https://www.googleapis.com/youtube/v3/search"
+    );
 
-		return `
-			<article class="video-card">
-				<img class="video-thumb" src="${thumb}" alt="${title}">
-				<div class="video-body">
-					<h3>${title}</h3>
-					<p>${channel}</p>
-					<p>${description}</p>
-					<a class="video-link" href="${videoUrl}" target="_blank" rel="noreferrer">Watch video</a>
-				</div>
-			</article>
-		`;
-	}).join('');
+    url.searchParams.set("part","snippet");
+    url.searchParams.set("type","video");
+    url.searchParams.set("maxResults","10");
+    url.searchParams.set("q",query);
+    url.searchParams.set("key",API_KEY);
+
+    const response = await fetch(url);
+
+    const data = await response.json();
+
+    if(!response.ok){
+        throw new Error(
+            data?.error?.message || "API Error"
+        );
+    }
+
+    return data.items;
 }
 
-async function searchVideos(query) {
-	if (!API_KEY) {
-		throw new Error('YouTube API key is missing in config.js.');
-	}
+function renderVideos(videos){
 
-	const url = new URL('https://www.googleapis.com/youtube/v3/search');
-	url.searchParams.set('part', 'snippet');
-	url.searchParams.set('type', 'video');
-	url.searchParams.set('maxResults', '10');
-	url.searchParams.set('q', query);
-	url.searchParams.set('key', API_KEY);
+    if(!videos.length){
+        renderEmpty("No videos found");
+        return;
+    }
 
-	const response = await fetch(url.toString());
-	const data = await response.json();
+    results.innerHTML = videos.map(video => {
 
-	if (!response.ok) {
-		const apiMessage = data?.error?.message || 'Request failed.';
-		throw new Error(apiMessage);
-	}
+        const title = escapeHtml(
+            video.snippet.title
+        );
 
-	return data.items || [];
+        const channel = escapeHtml(
+            video.snippet.channelTitle
+        );
+
+        const thumb =
+            video.snippet.thumbnails.medium.url;
+
+        return `
+            <article
+                class="video-card"
+                data-video-id="${video.id.videoId}"
+            >
+
+                <img
+                    class="video-thumb"
+                    src="${thumb}"
+                    alt="${title}"
+                >
+
+                <div class="video-body">
+
+                    <h3>${title}</h3>
+
+                    <p>${channel}</p>
+
+                </div>
+
+            </article>
+        `;
+    }).join("");
+
+    document
+        .querySelectorAll(".video-card")
+        .forEach(card => {
+
+            card.addEventListener(
+                "click",
+                () => {
+                    openVideoModal(
+                        card.dataset.videoId
+                    );
+                }
+            );
+
+        });
 }
 
-async function runSearch(query) {
-	const trimmedQuery = query.trim();
+async function runSearch(query){
 
-	if (!trimmedQuery) {
-		setStatus('Please enter a search term.');
-		renderEmpty('Search bar me koi keyword likho, phir Search button dabao.');
-		return;
-	}
+    if(!query.trim()){
+        return;
+    }
 
-	setStatus(`Searching for "${trimmedQuery}"...`);
-	renderEmpty('Loading results...');
+    setStatus(`Searching "${query}"...`);
 
-	try {
-		const videos = await searchVideos(trimmedQuery);
-		setStatus(``);
-		renderVideos(videos);
-	} catch (error) {
-		setStatus(`API error: ${error.message}`);
-		renderEmpty('API test failed. Check your key, YouTube Data API v3, and API restrictions.');
-	}
+    try{
+
+        const videos =
+            await searchVideos(query);
+
+        renderVideos(videos);
+
+        setStatus(
+            `${videos.length} videos found`
+        );
+
+    }catch(error){
+
+        setStatus(error.message);
+
+    }
 }
 
-form.addEventListener('submit', (event) => {
-	event.preventDefault();
-	runSearch(input.value);
+function openVideoModal(videoId){
+
+    if(player){
+        player.destroy();
+    }
+
+    document.getElementById("player").innerHTML = `
+        <div
+            data-plyr-provider="youtube"
+            data-plyr-embed-id="${videoId}">
+        </div>
+    `;
+
+    player = new Plyr(
+        "#player div",
+        {
+            autoplay:true
+        }
+    );
+
+    modal.classList.add("active");
+}
+
+function closeVideoModal(){
+
+    modal.classList.remove("active");
+
+    if(player){
+        player.destroy();
+        player = null;
+    }
+}
+
+closeBtn.addEventListener(
+    "click",
+    closeVideoModal
+);
+
+modal.addEventListener("click",(e)=>{
+
+    if(
+        e.target.classList.contains(
+            "modal-overlay"
+        )
+    ){
+        closeVideoModal();
+    }
+
 });
 
-renderEmpty('Search results will appear here.');
+form.addEventListener("submit",(e)=>{
+
+    e.preventDefault();
+
+    runSearch(
+        input.value
+    );
+
+});
+
+renderEmpty(
+    "Search videos to see results."
+);
