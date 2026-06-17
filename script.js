@@ -86,7 +86,7 @@ async function runSearch(query) {
 
 	try {
 		const videos = await searchVideos(trimmedQuery);
-		setStatus(`Showing top ${videos.length} results for "${trimmedQuery}".`);
+		setStatus(``);
 		renderVideos(videos);
 	} catch (error) {
 		setStatus(`API error: ${error.message}`);
